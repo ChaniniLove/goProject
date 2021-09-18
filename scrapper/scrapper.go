@@ -1,4 +1,4 @@
-package main
+package scrapper
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	ccsv "github.com/tsak/concurrent-csv-writer"
 )
 
-var baseURL = "https://kr.indeed.com/jobs?q=golang"
 
 type extractedJob struct {
 	id string
@@ -22,12 +21,13 @@ type extractedJob struct {
 }
 
 
-func main() {
+func Scrape(term string) {
 	var jobs []extractedJob
+	var baseURL = "https://kr.indeed.com/jobs?q="+term
 	c := make(chan []extractedJob)
-	totalPageLen := getPages()
+	totalPageLen := getPages(baseURL)
 	for i:=0;i < totalPageLen;i++ {
-		go getPage(i, c)
+		go getPage(i, baseURL ,c)
 	}
 
 	for i:=0;i<totalPageLen;i++ {
@@ -40,7 +40,7 @@ func main() {
 
 
 //go page 1,2,3,4...
-func getPage(page int, mc chan<- []extractedJob) {
+func getPage(page int, baseURL string,mc chan<- []extractedJob) {
 	var jobs []extractedJob
 	c := make(chan extractedJob)
 	pageURL := baseURL + "&start=" + strconv.Itoa(page*50)
@@ -71,10 +71,10 @@ func getPage(page int, mc chan<- []extractedJob) {
 //extract a Job(extract id,title,location,salary,summary)
 func extractJob(card *goquery.Selection,c chan<- extractedJob){
 	id,_ := card.Attr("data-jk")
-	title := cleanStrings(card.Find(".jobTitle>span").Text())
-	location := cleanStrings(card.Find(".companyLocation").Text())
-	salary := cleanStrings(card.Find(".salary-snippet").Text())
-	summary := cleanStrings(card.Find(".summary").Text())
+	title := CleanStrings(card.Find(".jobTitle>span").Text())
+	location := CleanStrings(card.Find(".companyLocation").Text())
+	salary := CleanStrings(card.Find(".salary-snippet").Text())
+	summary := CleanStrings(card.Find(".summary").Text())
 	c <- extractedJob{
 		id: id,
 		title: title,
@@ -85,7 +85,7 @@ func extractJob(card *goquery.Selection,c chan<- extractedJob){
 }
 
 //get all pages
-func getPages() int {
+func getPages(baseURL string) int {
 	pages := 0
 	res, err := http.Get(baseURL)
 	checkError(err)
@@ -131,6 +131,6 @@ func checkCode(res *http.Response){
 }
 
 //make clean string
-func cleanStrings(str string) string{
+func CleanStrings(str string) string{
 	return strings.Join(strings.Fields(strings.TrimSpace(str))," ")
 }
